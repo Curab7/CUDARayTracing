@@ -22,51 +22,49 @@ public:
 
     Scene() {}
 
-    ~Scene() {
-#if USE_CUDA
-        CUDA_FREE(notBVH);
-#endif
-        delete bvh;
-    }
+    ~Scene();
 
     void addObject(Object* object) { objects.push_back(object); }
 
-    void buildBVH() {
-        if (USE_BVH)
-        {
-            std::cout << "Building scene BVH..." << std::endl;
-            bvh = new BVH(objects);
-        }
-        else
-        {
-#if USE_CUDA
-            numObjects = objects.size();
-            CUDA_MALLOC(notBVH, numObjects * sizeof(Object*), Object*);
-            for (int i = 0; i < numObjects; i++)
-            {
-                notBVH[i] = objects[i];
-            };
-#endif
-        }
-    }
+    void buildBVH();
+
+    CUDA_CALLABLE bool intersect(const Ray& ray, Intersection& isec) const;
 
     CUDA_CALLABLE Vector3 castRay(const Ray& ray, int depth) const;
 };
 
+Scene::~Scene() {
+#if USE_CUDA
+    CUDA_FREE(notBVH);
+#endif
+    delete bvh;
+}
 
-CUDA_CALLABLE Vector3 Scene::castRay(const Ray& ray, int depth) const
+void Scene::buildBVH() {
+    if (USE_BVH)
+    {
+        std::cout << "Building scene BVH..." << std::endl;
+        bvh = new BVH(objects);
+    }
+    else
+    {
+#if USE_CUDA
+        numObjects = objects.size();
+        CUDA_MALLOC(notBVH, numObjects * sizeof(Object*), Object*);
+        for (int i = 0; i < numObjects; i++)
+        {
+            notBVH[i] = objects[i];
+        };
+#endif
+    }
+}
+
+CUDA_CALLABLE bool Scene::intersect(const Ray& ray, Intersection& isec) const
 {
-    Vector3 result(0.0f, 0.0f, 0.0f);
-
-    if (depth > maxDepth)
-        return result;
-
-    Intersection isec;
-
     if (!bvh)
     {
 #if USE_CUDA
-        CUDA_LOG("Traversing scene without BVH...\n");
+        CUDA_LOG("Inserting scene without BVH...\n");
         for (int i = 0; i < numObjects; i++)
         {
             notBVH[i]->intersect(ray, isec);
@@ -81,11 +79,21 @@ CUDA_CALLABLE Vector3 Scene::castRay(const Ray& ray, int depth) const
     }
     else
     {
-        CUDA_LOG("Traversing scene with BVH...\n");
+        CUDA_LOG("Inserting scene with BVH...\n");
         bvh->intersect(ray, isec);
     }
+}
 
-    if (!isec.hit)
+CUDA_CALLABLE Vector3 Scene::castRay(const Ray& ray, int depth) const
+{
+    Vector3 result(0.0f, 0.0f, 0.0f);
+
+    if (depth > maxDepth)
+        return result;
+
+    Intersection isec;
+
+    if (!intersect(ray, isec))
     {
         return background;
     }

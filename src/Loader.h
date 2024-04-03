@@ -12,14 +12,17 @@
 #include <iostream>
 #include <sstream>
 
-#include <tinyxml2.h>
+#include "external/tinyxml2.h"
 
 class Loader
 {
 public:
 	std::string folderName;
 
-	std::vector<Triangle*> allTriangleGroups;
+	std::vector<Triangle*> allTriangles;
+	std::vector<float*> allVertices;
+	std::vector<float*> allNormals;
+	std::vector<float*> allUvs;
 	std::vector<Mesh*> allMeshes;
 	std::map<std::string, std::map<std::string, Material*>> allMaterials; // path -> name -> material
 	std::map<std::string, Texture*> allTextures;
@@ -30,8 +33,14 @@ public:
 	Loader(std::string folderName) : folderName(folderName) {}
 	~Loader()
 	{
-		for (auto triangle : allTriangleGroups)
-			delete[] triangle;
+		for (auto triangles : allTriangles)
+			delete[] triangles;
+		for (auto vertices : allVertices)
+			CUDA_FREE(vertices);
+		for (auto normals : allNormals)
+			CUDA_FREE(normals);
+		for (auto uvs : allUvs)
+			CUDA_FREE(uvs);
 		for (auto mesh : allMeshes)
 			delete mesh;
 		for (auto pathPair : allMaterials)
@@ -161,22 +170,51 @@ Mesh* Loader::loadOBJ(const std::string& filename)
 		}
 	}
 
+	float* verticesPool = nullptr;
+	CUDA_MALLOC(verticesPool, vertices.size() * 3 * sizeof(float), float);
+	allVertices.push_back(verticesPool);
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		verticesPool[i * 3 + 0] = vertices[i].x;
+		verticesPool[i * 3 + 1] = vertices[i].y;
+		verticesPool[i * 3 + 2] = vertices[i].z;
+	}
+
+	float* normalsPool = nullptr;
+	CUDA_MALLOC(normalsPool, normals.size() * 3 * sizeof(float), float);
+	allNormals.push_back(normalsPool);
+	for (int i = 0; i < normals.size(); i++)
+	{
+		normalsPool[i * 3 + 0] = normals[i].x;
+		normalsPool[i * 3 + 1] = normals[i].y;
+		normalsPool[i * 3 + 2] = normals[i].z;
+	}
+
+	float* uvsPool = nullptr;
+	CUDA_MALLOC(uvsPool, uvs.size() * 2 * sizeof(float), float);
+	allUvs.push_back(uvsPool);
+	for (int i = 0; i < uvs.size(); i++)
+	{
+		uvsPool[i * 2 + 0] = uvs[i].x;
+		uvsPool[i * 2 + 1] = uvs[i].y;
+	}
+
 	int numTriangles = idxVertices.size() / 3;
-	Triangle* triangleGroup = new Triangle[numTriangles];
-	allTriangleGroups.push_back(triangleGroup);
+	Triangle* triangleGroup = new Triangle[idxVertices.size() / 3];
+	allTriangles.push_back(triangleGroup);
 	for (int i = 0; i < idxVertices.size(); i += 3)
 	{
-		Vector3 v1 = vertices[idxVertices[i]];
-		Vector3 v2 = vertices[idxVertices[i + 1]];
-		Vector3 v3 = vertices[idxVertices[i + 2]];
+		int idxV1 = idxVertices[i];
+		int idxV2 = idxVertices[i + 1];
+		int idxV3 = idxVertices[i + 2];
 
-		Vector3 n1 = idxNormals[i] >= 0 ? normals[idxNormals[i]] : Vector3(0, 0, 0);
-		Vector3 n2 = idxNormals[i + 1] >= 0 ? normals[idxNormals[i + 1]] : Vector3(0, 0, 0);
-		Vector3 n3 = idxNormals[i + 2] >= 0 ? normals[idxNormals[i + 2]] : Vector3(0, 0, 0);
+		int idxN1 = idxNormals[i] >= 0 ? idxNormals[i] : -1;
+		int idxN2 = idxNormals[i + 1] >= 0 ? idxNormals[i + 1] : -1;
+		int idxN3 = idxNormals[i + 2] >= 0 ? idxNormals[i + 2] : -1;
 
-		Vector2 uv1 = idxUvs[i] >= 0 ? uvs[idxUvs[i]] : Vector2(0, 0);
-		Vector2 uv2 = idxUvs[i + 1] >= 0 ? uvs[idxUvs[i + 1]] : Vector2(0, 0);
-		Vector2 uv3 = idxUvs[i + 2] >= 0 ? uvs[idxUvs[i + 2]] : Vector2(0, 0);
+		int idxUV1 = idxUvs[i] >= 0 ? idxUvs[i] : -1;
+		int idxUV2 = idxUvs[i + 1] >= 0 ? idxUvs[i + 1] : -1;
+		int idxUV3 = idxUvs[i + 2] >= 0 ? idxUvs[i + 2] : -1;
 
 		Material* material = nullptr;
 		std::string materialName = nameMaterials[i / 3];
@@ -187,7 +225,7 @@ Mesh* Loader::loadOBJ(const std::string& filename)
 				material = pair->second;
 		}
 
-		triangleGroup[i/3] = Triangle(v1, v2, v3, n1, n2, n3, uv1, uv2, uv3, material);
+		triangleGroup[i/3] = Triangle(verticesPool, idxV1, idxV2, idxV3, normalsPool, idxN1, idxN2, idxN3, uvsPool, idxUV1, idxUV2, idxUV3, material);
 	};
 
 	std::vector<Triangle*> triangles(numTriangles);
@@ -299,7 +337,7 @@ bool Loader::loadXML(const std::string& filename, Camera** camera, std::map<std:
 		return false;
 	}
 
-	// ½âÎöcameraÐÅÏ¢
+	// ï¿½ï¿½ï¿½ï¿½cameraï¿½ï¿½Ï¢
 	float fovy;
 	int width, height;
 	Vector3 cameraEye, cameraLookat, cameraUp;
@@ -323,7 +361,7 @@ bool Loader::loadXML(const std::string& filename, Camera** camera, std::map<std:
 
 	*camera = new Camera(cameraEye, (cameraLookat - cameraEye).normalized(), cameraUp.normalized(), fovy, width, height);
 
-	// ½âÎölightÐÅÏ¢
+	// ï¿½ï¿½ï¿½ï¿½lightï¿½ï¿½Ï¢
 	auto lightElement = doc.FirstChildElement("light");
 	while (lightElement) {
 		const char* mtlname;
@@ -331,7 +369,7 @@ bool Loader::loadXML(const std::string& filename, Camera** camera, std::map<std:
 		mtlname = lightElement->Attribute("mtlname");
 		radiance = lightElement->Attribute("radiance");
 
-		// ½âÎöradianceÊôÐÔ²¢½«ÆäÒÔglm::vec3ÐÎÊ½´æµ½mapÖÐ
+		// ï¿½ï¿½ï¿½ï¿½radianceï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½glm::vec3ï¿½ï¿½Ê½ï¿½æµ½mapï¿½ï¿½
 		std::istringstream radianceStream(radiance);
 		float x, y, z;
 		char separator;

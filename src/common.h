@@ -2,7 +2,7 @@
 
 #define USE_CUDA 1
 #define USE_BVH 1
-#define PRINT_LOG 1
+#define PRINT_LOG 0
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 

@@ -4,29 +4,33 @@
 class Triangle : public SolidObject
 {
 public:
-    Vector3 v0, v1, v2;
-    Vector3 n0, n1, n2;
-    Vector2 uv0, uv1, uv2;
-    Vector3 e1, e2;
+    float* verticesPool;
+    float* normalPool;
+    float* uvPool;
+    int idxV0, idxV1, idxV2;
+    int idxN0, idxN1, idxN2;
+    int idxUV0, idxUV1, idxUV2;
 
     Triangle(): SolidObject(ObjectType::Triangle) {}
 
-    Triangle(const Vector3& v0, const Vector3& v1, const Vector3& v2,
-             const Vector3& n0, const Vector3& n1, const Vector3& n2,
-             const Vector2& uv0, const Vector2& uv1, const Vector2& uv2, const Material* material=nullptr)
+    Triangle(float* verticesPool, int idxV0, int idxV1, int idxV2,
+             float* normalPool, int idxN0, int idxN1, int idxN2,
+             float* uvPool, int idxUV0, int idxUV1, int idxUV2, const Material* material=nullptr)
         : SolidObject(ObjectType::Triangle),
-          v0(v0), v1(v1), v2(v2),
-          n0(n0), n1(n1), n2(n2),
-          uv0(uv0), uv1(uv1), uv2(uv2)
+          verticesPool(verticesPool), normalPool(normalPool), uvPool(uvPool),
+          idxV0(idxV0), idxV1(idxV1), idxV2(idxV2),
+          idxN0(idxN0), idxN1(idxN1), idxN2(idxN2),
+          idxUV0(idxUV0), idxUV1(idxUV1), idxUV2(idxUV2)
     {
-        e1 = v1 - v0;
-        e2 = v2 - v0;
         this->material = material;
     }
 
     AABB getAABB() const override
     {
         AABB aabb;
+        Vector3 v0 = Vector3(verticesPool, idxV0);
+        Vector3 v1 = Vector3(verticesPool, idxV1);
+        Vector3 v2 = Vector3(verticesPool, idxV2);
         aabb.pointMin = v0.min(v1).min(v2);
         aabb.pointMax = v0.max(v1).max(v2);
         return aabb;
@@ -40,6 +44,11 @@ public:
 CUDA_CALLABLE bool Triangle::intersect(const Ray& ray, Intersection& intersection) const
 {
     CUDA_LOG("Triangle::intersect\n");
+    Vector3 v0 = Vector3(verticesPool, idxV0);
+    Vector3 v1 = Vector3(verticesPool, idxV1);
+    Vector3 v2 = Vector3(verticesPool, idxV2);
+    Vector3 e1 = v1 - v0;
+    Vector3 e2 = v2 - v0;
     Vector3 s = ray.origin - v0;                  // S = O - P0
     Vector3 s1 = ray.direction.cross(e2);         // S1 = D cross E2
     Vector3 s2 = s.cross(e1);                     // S2 = S cross E1
@@ -72,6 +81,10 @@ CUDA_CALLABLE bool Triangle::intersect(const Ray& ray, Intersection& intersectio
     {
         return false;
     }
+
+    Vector3 n0 = Vector3(normalPool, idxN0);
+    Vector3 n1 = Vector3(normalPool, idxN1);
+    Vector3 n2 = Vector3(normalPool, idxN2);
 
     intersection.hit = true;
     intersection.t = t;

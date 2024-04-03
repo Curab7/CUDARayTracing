@@ -13,28 +13,34 @@
 #define DEG2RAD(x) (x * PI / 180.0f)
 #define RAD2DEG(x) (x * 180.0f / PI)
 
-#define MIN(a, b) ((a) < (b)? (a) : (b))
-#define MAX(a, b) ((a) > (b)? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define CLAMP(x, minVal, maxVal) (MAX(MIN(x, maxVal), minVal))
 
 class Vector3
 {
 public:
-	union {
-		struct { float x, y, z; };
+	union
+	{
+		struct
+		{
+			float x, y, z;
+		};
 		float v[3];
 	};
 
 	CUDA_CALLABLE Vector3() : x(0), y(0), z(0) {}
 	CUDA_CALLABLE Vector3(float x, float y, float z) : x(x), y(y), z(z) {}
-	CUDA_CALLABLE Vector3(const Vector3& other) : x(other.x), y(other.y), z(other.z) {}
+	CUDA_CALLABLE Vector3(const Vector3 &other) : x(other.x), y(other.y), z(other.z) {}
+	CUDA_CALLABLE Vector3(const float *pool, int index)
+		: x(index < 0 ? 0 : pool[index * 3 + 0]), y(index < 0 ? 0 : pool[index * 3 + 1]), z(index < 0 ? 0 : pool[index * 3 + 2]) {}
 
-	CUDA_CALLABLE Vector3 operator+(const Vector3& other) const
+	CUDA_CALLABLE Vector3 operator+(const Vector3 &other) const
 	{
 		return Vector3(x + other.x, y + other.y, z + other.z);
 	}
 
-	CUDA_CALLABLE Vector3 operator+= (const Vector3& other)
+	CUDA_CALLABLE Vector3 operator+=(const Vector3 &other)
 	{
 		x += other.x;
 		y += other.y;
@@ -42,17 +48,17 @@ public:
 		return *this;
 	}
 
-	CUDA_CALLABLE Vector3 operator+(const float& scalar) const
+	CUDA_CALLABLE Vector3 operator+(const float &scalar) const
 	{
 		return Vector3(x + scalar, y + scalar, z + scalar);
 	}
 
-	CUDA_CALLABLE Vector3 operator-(const Vector3& other) const
+	CUDA_CALLABLE Vector3 operator-(const Vector3 &other) const
 	{
 		return Vector3(x - other.x, y - other.y, z - other.z);
 	}
 
-	CUDA_CALLABLE Vector3 operator-=(const Vector3& other)
+	CUDA_CALLABLE Vector3 operator-=(const Vector3 &other)
 	{
 		x -= other.x;
 		y -= other.y;
@@ -60,7 +66,7 @@ public:
 		return *this;
 	}
 
-	CUDA_CALLABLE Vector3 operator-(const float& scalar) const
+	CUDA_CALLABLE Vector3 operator-(const float &scalar) const
 	{
 		return Vector3(x - scalar, y - scalar, z - scalar);
 	}
@@ -91,22 +97,22 @@ public:
 		return *this;
 	}
 
-	CUDA_CALLABLE float& operator[](int index)
+	CUDA_CALLABLE float &operator[](int index)
 	{
 		return v[index];
 	}
 
-	CUDA_CALLABLE const float& operator[](int index) const
+	CUDA_CALLABLE const float &operator[](int index) const
 	{
 		return v[index];
 	}
 
-	CUDA_CALLABLE float dot(const Vector3& other) const
+	CUDA_CALLABLE float dot(const Vector3 &other) const
 	{
 		return x * other.x + y * other.y + z * other.z;
 	}
 
-	CUDA_CALLABLE Vector3 cross(const Vector3& other) const
+	CUDA_CALLABLE Vector3 cross(const Vector3 &other) const
 	{
 		return Vector3(y * other.z - z * other.y, z * other.x - x * other.z, x * other.y - y * other.x);
 	}
@@ -127,17 +133,17 @@ public:
 		return Vector3(x / length, y / length, z / length);
 	}
 
-	CUDA_CALLABLE Vector3 min(const Vector3& other) const
+	CUDA_CALLABLE Vector3 min(const Vector3 &other) const
 	{
 		return Vector3(MIN(x, other.x), MIN(y, other.y), MIN(z, other.z));
 	}
 
-	CUDA_CALLABLE Vector3 max(const Vector3& other) const
+	CUDA_CALLABLE Vector3 max(const Vector3 &other) const
 	{
 		return Vector3(MAX(x, other.x), MAX(y, other.y), MAX(z, other.z));
 	}
 
-	CUDA_CALLABLE Vector3 lerp(const Vector3& other, float t) const
+	CUDA_CALLABLE Vector3 lerp(const Vector3 &other, float t) const
 	{
 		return Vector3(x + (other.x - x) * t, y + (other.y - y) * t, z + (other.z - z) * t);
 	}
@@ -153,7 +159,7 @@ public:
 	}
 };
 
-CUDA_CALLABLE inline Vector3 operator-(const Vector3& vec)
+CUDA_CALLABLE inline Vector3 operator-(const Vector3 &vec)
 {
 	return Vector3(-vec.x, -vec.y, -vec.z);
 }
@@ -161,21 +167,27 @@ CUDA_CALLABLE inline Vector3 operator-(const Vector3& vec)
 class Vector2
 {
 public:
-	union {
-		struct { float x, y; };
+	union
+	{
+		struct
+		{
+			float x, y;
+		};
 		float v[2];
 	};
 
 	CUDA_CALLABLE Vector2() : x(0), y(0) {}
 	CUDA_CALLABLE Vector2(float x, float y) : x(x), y(y) {}
-	CUDA_CALLABLE Vector2(const Vector2& other) : x(other.x), y(other.y) {}
+	CUDA_CALLABLE Vector2(const Vector2 &other) : x(other.x), y(other.y) {}
+	CUDA_CALLABLE Vector2(const float *pool, int index)
+		: x(index < 0 ? 0 : pool[index * 2 + 0]), y(index < 0 ? 0 : pool[index * 2 + 1]) {}
 
-	CUDA_CALLABLE Vector2 operator+(const Vector2& other) const
+	CUDA_CALLABLE Vector2 operator+(const Vector2 &other) const
 	{
 		return Vector2(x + other.x, y + other.y);
 	}
 
-	CUDA_CALLABLE Vector2 operator-(const Vector2& other) const
+	CUDA_CALLABLE Vector2 operator-(const Vector2 &other) const
 	{
 		return Vector2(x - other.x, y - other.y);
 	}
@@ -190,17 +202,17 @@ public:
 		return Vector2(x / scalar, y / scalar);
 	}
 
-	CUDA_CALLABLE float& operator[](int index)
+	CUDA_CALLABLE float &operator[](int index)
 	{
 		return v[index];
 	}
 
-	CUDA_CALLABLE const float& operator[](int index) const
+	CUDA_CALLABLE const float &operator[](int index) const
 	{
 		return v[index];
 	}
 
-	CUDA_CALLABLE float dot(const Vector2& other) const
+	CUDA_CALLABLE float dot(const Vector2 &other) const
 	{
 		return x * other.x + y * other.y;
 	}
@@ -221,7 +233,7 @@ public:
 		return Vector2(x / length, y / length);
 	}
 
-	CUDA_CALLABLE Vector2 lerp(const Vector2& other, float t) const
+	CUDA_CALLABLE Vector2 lerp(const Vector2 &other, float t) const
 	{
 		return Vector2(x + (other.x - x) * t, y + (other.y - y) * t);
 	}

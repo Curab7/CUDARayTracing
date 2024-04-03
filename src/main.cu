@@ -1,13 +1,13 @@
 ﻿#include "Loader.h"
 #include "Render.h"
 
-int main()
+int main(int argc, char* argv[])
 {
-    //std::string name = "cornell-box";
-    std::string name = "veach-mis";
+    std::string name = "cornell-box";
+    //std::string name = "veach-mis";
     //std::string name = "stairscase";
 
-    Loader loader("D:/Code/MyProjects/RayTracing/RayTracing/scenes/"+name +"/");
+    Loader loader("../scenes/"+name);
     loader.loadCoursePack(name);
 
     Scene* scene = loader.getScene();
@@ -16,16 +16,10 @@ int main()
     Render render(scene, camera, 1, 1);
     render.render();
 
-    render.saveImage(name + ".png");
+    render.saveImage("../output/" + name + ".png");
 
     return 0;
 }
-
-#include "Object.h"
-#include "Mesh.h"
-#include "Triangle.h"
-#include "BVH.h"
-
 
 CUDA_CALLABLE bool Object::intersect(const Ray& ray, Intersection& intersection)
 {

@@ -2,6 +2,10 @@
 
 /RayTracing
 /.vs
+/.vscode
+/bin
+/build
+/out
 
 *.sln
 *.vcxproj

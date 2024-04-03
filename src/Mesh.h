@@ -16,7 +16,13 @@ public:
     BVH *bvh{nullptr};
 
     Mesh(std::vector<Triangle*> triangles) :Object(ObjectType::Mesh), triangles(triangles) {
-
+#if USE_BVH
+        std::vector<Object*> objects;
+        for (Triangle* triangle : triangles) {
+            objects.push_back(triangle);
+        }
+        bvh = new BVH(objects);
+#else
 #if USE_CUDA
         numTriangles = triangles.size();
         CUDA_MALLOC(notBVH, numTriangles * sizeof(Triangle*), Triangle*);
@@ -25,15 +31,7 @@ public:
             this->notBVH[i] = triangles[i];
         }
 #endif
-
-        if (USE_BVH)
-        {
-            std::vector<Object*> objects;
-            for (Triangle* triangle : triangles) {
-                objects.push_back(triangle);
-            }
-            bvh = new BVH(objects);
-        }
+#endif
     }
 
     ~Mesh() {
@@ -51,23 +49,20 @@ public:
 CUDA_CALLABLE bool Mesh::intersect(const Ray& ray, Intersection& intersection) const
 {
     CUDA_LOG("Mesh::intersect\n");
-    if (!bvh)
-    {
-        bool result = false;
-#if USE_CUDA
-        for (int i=0; i<numTriangles; i++)
-        {
-            result |= notBVH[i]->intersect(ray, intersection);
-        }
+#if USE_BVH
+    return bvh->intersect(ray, intersection);
 #else
-        for (Triangle* triangle : triangles) {
-            result |= triangle->intersect(ray, intersection);
-        }
-#endif
-        return result;
-    }
-    else
+    bool result = false;
+#if USE_CUDA
+    for (int i=0; i<numTriangles; i++)
     {
-        return bvh->intersect(ray, intersection);
+        result |= notBVH[i]->intersect(ray, intersection);
     }
+#else
+    for (Triangle* triangle : triangles) {
+        result |= triangle->intersect(ray, intersection);
+    }
+#endif
+    return result;
+#endif
 }

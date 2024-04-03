@@ -14,7 +14,8 @@ public:
     BVHNode* left{ nullptr };
     BVHNode* right{ nullptr };
 
-    BVHNode(Object* object, AABB aabb) : Object(ObjectType::BVHNode), object(object), aabb(aabb) {};
+    BVHNode() {}
+    BVHNode(Object* object, AABB aabb) : Object(ObjectType::BVHNode), object(object), aabb(aabb) {}
     ~BVHNode() { delete left; delete right; }
 
     AABB getAABB() const override { return aabb; }
@@ -26,6 +27,8 @@ class BVH : public Object
 {
 public:
     BVHNode* root{ nullptr };
+    BVHNode* allNodes{ nullptr };
+    int numNodes{ 0 };
 
     BVH(const std::vector<Object*>& objects);
 
@@ -46,10 +49,13 @@ public:
 BVH::BVH(const std::vector<Object*>& objects) : Object(ObjectType::BVH)
 {
     std::vector<BVHNode*> nodes;
-
+    allNodes = new BVHNode[2*objects.size()];
+    numNodes = 0;
     for (Object* object : objects)
     {
-        nodes.push_back(new BVHNode(object, object->getAABB()));
+        allNodes[numNodes] = BVHNode(object, object->getAABB());
+        nodes.push_back(&allNodes[numNodes]);
+        numNodes++;
     }
     root = buildRecursively(nodes);
 }
@@ -72,7 +78,9 @@ BVHNode* BVH::buildRecursively(std::vector<BVHNode*> nodes)
     }
     else if (nodes.size() == 2)
     {
-        BVHNode* node = new BVHNode(nullptr, nodes[0]->aabb.unionWith(nodes[1]->aabb));
+        allNodes[numNodes] = BVHNode(nullptr, nodes[0]->aabb.unionWith(nodes[1]->aabb));
+        BVHNode* node = &allNodes[numNodes];
+        numNodes++;
         node->left = nodes[0];
         node->right = nodes[1];
         return node;
@@ -104,7 +112,9 @@ BVHNode* BVH::buildRecursively(std::vector<BVHNode*> nodes)
     BVHNode* left = buildRecursively(std::vector<BVHNode*>(nodes.begin(), mid));
     BVHNode* right = buildRecursively(std::vector<BVHNode*>(mid, nodes.end()));
 
-    BVHNode* node = new BVHNode(nullptr, left->aabb.unionWith(right->aabb));
+    allNodes[numNodes] = BVHNode(nullptr, left->aabb.unionWith(right->aabb));
+    BVHNode* node = &allNodes[numNodes];
+    numNodes++;
     node->left = left;
     node->right = right;
 
@@ -134,13 +144,13 @@ CUDA_CALLABLE bool BVHNode::intersect(const Ray& ray, Intersection& isec) const
 
     if (left)
     {
-        printf("BVHNode::intersect left\n");
+        CUDA_LOG(printf("BVHNode::intersect left\n"));
         left->intersect(ray, isec);
     }
 
     if (right)
     {
-        printf("BVHNode::intersect right\n");
+        CUDA_LOG(printf("BVHNode::intersect right\n"));
         right->intersect(ray, isec);
     }
 
