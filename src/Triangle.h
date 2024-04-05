@@ -86,9 +86,13 @@ CUDA_CALLABLE bool Triangle::intersect(const Ray& ray, Intersection& intersectio
     Vector3 n1 = Vector3(normalPool, idxN1);
     Vector3 n2 = Vector3(normalPool, idxN2);
 
+    Vector2 uv0 = Vector2(uvPool, idxUV0);
+    Vector2 uv1 = Vector2(uvPool, idxUV1);
+    Vector2 uv2 = Vector2(uvPool, idxUV2);
+
     intersection.hit = true;
     intersection.t = t;
-    intersection.uv = Vector2(b1, b2);
+    intersection.uv = (uv0 * b0 + uv1 * b1 + uv2 * b2);
     intersection.point = ray.origin + ray.direction * t;
     intersection.normal = (n0 * b0 + n1 * b1 + n2 * b2).normalized();
     intersection.sense = ray.direction.dot(intersection.normal) > 0.0f;

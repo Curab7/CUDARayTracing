@@ -44,7 +44,7 @@ public:
 
 CUDA_CALLABLE bool AABB::intersect(const Ray& ray, float& tin, float& tout) const
 {
-    CUDA_LOG("AABB::intersect\n");
+    //CUDA_LOG("AABB::intersect\n");
     float tmin[3];
     float tmax[3];
     for (int i = 0; i < 3; i++)

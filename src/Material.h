@@ -16,4 +16,17 @@ public:
 
     Material() = default;
     ~Material() = default;
+
+    CUDA_DEVICE Vector3 getEmission(const Vector2& uv = Vector2(0.0f, 0.0f)) const
+    {
+        // TODO: may have texture
+        return Ke;
+    }
+
+    CUDA_DEVICE Vector3 brdf(const Vector3& wi, const Vector3& wo, const Vector3& normal, const Vector2& uv) const;
 };
+
+CUDA_DEVICE Vector3 Material::brdf(const Vector3& wi, const Vector3& wo, const Vector3& normal, const Vector2& uv) const
+{
+    return Kd /(2 * PI);
+}

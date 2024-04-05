@@ -18,4 +18,5 @@ public:
     SolidObject* object{ nullptr };
 
     CUDA_CALLABLE Intersection() {}
+    CUDA_CALLABLE ~Intersection() {}
 };

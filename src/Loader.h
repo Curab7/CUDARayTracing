@@ -77,6 +77,7 @@ bool Loader::loadCoursePack(const std::string& caseName)
 		for (auto light : lightRadiance)
 		{
 			sceneMaterials[light.first]->Ke = light.second;
+			sceneMaterials[light.first]->isEmissive = true;
 		}
 	}
 	return success && scene!=nullptr && camera!=nullptr;

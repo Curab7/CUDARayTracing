@@ -3,8 +3,8 @@
 
 int main(int argc, char* argv[])
 {
-    std::string name = "cornell-box";
-    //std::string name = "veach-mis";
+    //std::string name = "cornell-box";
+    std::string name = "veach-mis";
     //std::string name = "stairscase";
 
     Loader loader("../scenes/"+name);
@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
     Scene* scene = loader.getScene();
     Camera* camera = loader.getCamera();
 
-    Render render(scene, camera, 1, 1);
+    Render render(scene, camera, 1, 10);
     render.render();
 
     render.saveImage("../output/" + name + ".png");
@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
 
 CUDA_CALLABLE bool Object::intersect(const Ray& ray, Intersection& intersection)
 {
-    CUDA_LOG("Object::intersect, type = %d\n", type);
+    //CUDA_LOG("Object::intersect, type = %d\n", type);
     switch (type)
     {
     case ObjectType::Mesh:

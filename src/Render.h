@@ -8,22 +8,23 @@
 
 #include "external/stb_image_write.h"
 
-
-CUDA_CALLABLE void drawPixel(int x, int y, int width, int height, int SSAA, Scene* scene, Camera* camera, Vector3* frameBuffer)
+#if USE_CUDA
+CUDA_DEVICE void cudaDrawPixel(int x, int y, int width, int height, int sqrtSPP, Scene* scene, Camera* camera, Vector3* frameBuffer, curandState_t* curandStates)
 {
+    curand_init(114154, y * width + x, 0, &curandStates[y * width + x]);
     Vector3 color(0.0f, 0.0f, 0.0f);
-    for (int i = 0; i < SSAA; i++)
+    for (int i = 0; i < sqrtSPP; i++)
     {
-        for (int j = 0; j < SSAA; j++)
+        for (int j = 0; j < sqrtSPP; j++)
         {
-            float sx = (x + (i + 1.0f) / (SSAA + 1.0f)) / width;
-            float sy = (y + (j + 1.0f) / (SSAA + 1.0f)) / height;
+            float sx = (x + (i + 1.0f) / (sqrtSPP + 1.0f)) / width;
+            float sy = (y + (j + 1.0f) / (sqrtSPP + 1.0f)) / height;
 
             CUDA_LOG("CUDA: Generating ray for pixel (%d, %d)\n", x, y);
             //Ray ray = camera->generateRay(sx, sy);
             Ray ray = camera->generateRay(sx, sy);
             CUDA_LOG("CUDA: Casting ray for pixel (%d, %d)\n", x, y);
-            color = color + scene->castRay(ray, 0) / (float)(SSAA * SSAA);
+            color = color + scene->castRay(ray, 0, &curandStates[y * width + x]) / (float)(sqrtSPP * sqrtSPP);
             CUDA_LOG("CUDA: Got pixel (%d, %d)\n", x, y);
 
         }
@@ -31,9 +32,7 @@ CUDA_CALLABLE void drawPixel(int x, int y, int width, int height, int SSAA, Scen
 
     frameBuffer[y * width + x] = color;
 }
-
-#if USE_CUDA
-CUDA_GLOBAL void cudaRender(int width, int height, int SSAA, Scene* scene, Camera* camera, Vector3* frameBuffer)
+CUDA_GLOBAL void cudaRender(int width, int height, int sqrtSPP, Scene* scene, Camera* camera, Vector3* frameBuffer, curandState_t* curandStates)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -41,7 +40,25 @@ CUDA_GLOBAL void cudaRender(int width, int height, int SSAA, Scene* scene, Camer
     if (x >= width || y >= height)
         return;
 
-    drawPixel(x, y, width, height, SSAA, scene, camera, frameBuffer);
+    cudaDrawPixel(x, y, width, height, sqrtSPP, scene, camera, frameBuffer, curandStates);
+}
+#else
+void drawPixel(int x, int y, int width, int height, int sqrtSPP, Scene* scene, Camera* camera, Vector3* frameBuffer)
+{
+    Vector3 color(0.0f, 0.0f, 0.0f);
+    for (int i = 0; i < sqrtSPP; i++)
+    {
+        for (int j = 0; j < sqrtSPP; j++)
+        {
+            float sx = (x + (i + 1.0f) / (sqrtSPP + 1.0f)) / width;
+            float sy = (y + (j + 1.0f) / (sqrtSPP + 1.0f)) / height;
+
+            Ray ray = camera->generateRay(sx, sy);
+            color = color + scene->castRay(ray, 0) / (float)(sqrtSPP * sqrtSPP);
+        }
+    }
+
+    frameBuffer[y * width + x] = color;
 }
 #endif
 
@@ -55,11 +72,15 @@ public:
     int width{ 512 };
     int height{ 512 };
 
-    int SSAA{ 2 };
+    int sqrtSPP{ 2 };
 
     Vector3* frameBuffer;
 
-    Render(Scene* scene, Camera* camera, int SSAA = 2, int maxDepth = 4, double RussianRoulette = 0.8);
+#if USE_CUDA
+    curandState_t* curandStates;
+#endif
+
+    Render(Scene* scene, Camera* camera, int SPP = 2, int maxDepth = 4, float RussianRoulette = 0.8);
     ~Render();
 
     void render();
@@ -68,23 +89,31 @@ public:
 };
 
 
-Render::Render(Scene* scene, Camera* camera, int SSAA, int maxDepth, double RussianRoulette)
+Render::Render(Scene* scene, Camera* camera, int SPP, int maxDepth, float RussianRoulette)
 {
     this->scene = scene;
     this->camera = camera;
     this->width = (int)camera->width;
     this->height = (int)camera->height;
-    this->SSAA = SSAA;
+    this->sqrtSPP = (int)sqrt(SPP);
     this->scene->maxDepth = maxDepth;
     this->scene->RussianRoulette = RussianRoulette;
 
     CUDA_MALLOC(frameBuffer, width * height * sizeof(Vector3), Vector3);
+
+#if USE_CUDA
+    CUDA_MALLOC(curandStates, width * height * sizeof(curandState_t), curandState_t);
+#endif
 }
 
 
 Render::~Render()
 {
     CUDA_FREE(frameBuffer);
+
+#if USE_CUDA
+    CUDA_FREE(curandStates);
+#endif
 }
 
 
@@ -97,7 +126,7 @@ void Render::render()
 #if USE_CUDA
     dim3 blockDim(16, 16);
     dim3 gridDim(width / blockDim.x + 1, height / blockDim.y + 1);
-    cudaRender<<<gridDim, blockDim>>>(width, height, SSAA, scene, camera, frameBuffer);
+    cudaRender<<<gridDim, blockDim>>>(width, height, sqrtSPP, scene, camera, frameBuffer, curandStates);
 
 
     cudaError_t err = cudaDeviceSynchronize();
@@ -111,7 +140,7 @@ void Render::render()
     {
         for(int x = 0; x < width; x++)
         {
-            drawPixel(x, y, width, height, SSAA, scene, camera, frameBuffer);
+            drawPixel(x, y, width, height, sqrtSPP, scene, camera, frameBuffer);
         }
     }
 #endif

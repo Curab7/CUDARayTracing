@@ -40,7 +40,7 @@ public:
 
     CUDA_CALLABLE bool intersect(const Ray& ray, Intersection& isec) const
     {
-        CUDA_LOG("BVH::intersect\n");
+        //CUDA_LOG("BVH::intersect\n");
         return root ? root->intersect(ray, isec) : isec.hit;
     };
 };
@@ -123,7 +123,7 @@ BVHNode* BVH::buildRecursively(std::vector<BVHNode*> nodes)
 
 CUDA_CALLABLE bool BVHNode::intersect(const Ray& ray, Intersection& isec) const
 {
-    CUDA_LOG("BVHNode::intersect\n");
+    //CUDA_LOG("BVHNode::intersect\n");
     float tmin = 0.0f;
     float tmax = INF;
 
@@ -144,13 +144,13 @@ CUDA_CALLABLE bool BVHNode::intersect(const Ray& ray, Intersection& isec) const
 
     if (left)
     {
-        CUDA_LOG(printf("BVHNode::intersect left\n"));
+        //CUDA_LOG("BVHNode::intersect left\n");
         left->intersect(ray, isec);
     }
 
     if (right)
     {
-        CUDA_LOG(printf("BVHNode::intersect right\n"));
+        //CUDA_LOG("BVHNode::intersect right\n");
         right->intersect(ray, isec);
     }
 

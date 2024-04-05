@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include <curand_kernel.h>
 #include <cmath>
 #include <algorithm>
 
@@ -17,6 +18,18 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define CLAMP(x, minVal, maxVal) (MAX(MIN(x, maxVal), minVal))
 
+__device__ float randomFloat(int seed=0)
+{
+	//static bool init = false;
+	//static curandState_t state;
+	//if (!init)
+	//{
+	//	curand_init(seed, 0, 0, &state);
+	//	init = true;
+	//}
+	//return curand_uniform(&state);
+}
+
 class Vector3
 {
 public:
@@ -32,8 +45,23 @@ public:
 	CUDA_CALLABLE Vector3() : x(0), y(0), z(0) {}
 	CUDA_CALLABLE Vector3(float x, float y, float z) : x(x), y(y), z(z) {}
 	CUDA_CALLABLE Vector3(const Vector3 &other) : x(other.x), y(other.y), z(other.z) {}
+	CUDA_CALLABLE Vector3(const Vector3 &&other) : x(other.x), y(other.y), z(other.z) {}
 	CUDA_CALLABLE Vector3(const float *pool, int index)
 		: x(index < 0 ? 0 : pool[index * 3 + 0]), y(index < 0 ? 0 : pool[index * 3 + 1]), z(index < 0 ? 0 : pool[index * 3 + 2]) {}
+	CUDA_CALLABLE ~Vector3() {}
+
+	CUDA_CALLABLE Vector3 operator=(const Vector3 &other)
+	{
+		x = other.x;
+		y = other.y;
+		z = other.z;
+		return *this;
+	}
+
+	CUDA_CALLABLE Vector3 operator-() const
+	{
+		return Vector3(-x, -y, -z);
+	}
 
 	CUDA_CALLABLE Vector3 operator+(const Vector3 &other) const
 	{
@@ -69,6 +97,11 @@ public:
 	CUDA_CALLABLE Vector3 operator-(const float &scalar) const
 	{
 		return Vector3(x - scalar, y - scalar, z - scalar);
+	}
+
+	CUDA_CALLABLE Vector3 operator*(const Vector3 &other) const
+	{
+		return Vector3(x * other.x, y * other.y, z * other.z);
 	}
 
 	CUDA_CALLABLE Vector3 operator*(float scalar) const
@@ -159,9 +192,9 @@ public:
 	}
 };
 
-CUDA_CALLABLE inline Vector3 operator-(const Vector3 &vec)
+CUDA_CALLABLE Vector3 operator*(float scalar, const Vector3 &vec)
 {
-	return Vector3(-vec.x, -vec.y, -vec.z);
+	return Vector3(vec.x * scalar, vec.y * scalar, vec.z * scalar);
 }
 
 class Vector2
@@ -179,8 +212,16 @@ public:
 	CUDA_CALLABLE Vector2() : x(0), y(0) {}
 	CUDA_CALLABLE Vector2(float x, float y) : x(x), y(y) {}
 	CUDA_CALLABLE Vector2(const Vector2 &other) : x(other.x), y(other.y) {}
+	CUDA_CALLABLE Vector2(const Vector2 &&other) : x(other.x), y(other.y) {}
 	CUDA_CALLABLE Vector2(const float *pool, int index)
 		: x(index < 0 ? 0 : pool[index * 2 + 0]), y(index < 0 ? 0 : pool[index * 2 + 1]) {}
+
+	CUDA_CALLABLE Vector2 operator=(const Vector2 &other)
+	{
+		x = other.x;
+		y = other.y;
+		return *this;
+	}
 
 	CUDA_CALLABLE Vector2 operator+(const Vector2 &other) const
 	{
