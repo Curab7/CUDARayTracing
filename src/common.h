@@ -1,10 +1,12 @@
 #pragma once
 
 #define USE_CUDA 1
-#define USE_BVH 0
+#define USE_BVH 1
 #define PRINT_LOG 0
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+
+constexpr int MAX_DEPTH = 20;
 
 #if USE_CUDA
 #include <cuda_runtime.h>
@@ -17,6 +19,10 @@
 #define CUDA_FREE(ptr) cudaFree(ptr)
 #define CUDA_MEMSET(ptr, value, size) cudaMemset(ptr, value, size)
 #define CURAND_STATE_T_PTR curandState_t*
+#define CUDA_CHECK(err) {cudaError_t e = err; if (e != cudaSuccess) {printf("Cuda error: %s\n", cudaGetErrorString(e)); exit(1);}}
+#define STACK_SIZE_BVH (1024 * 8)
+#define STACK_SIZE_CASTRAY (512)
+constexpr size_t STACK_SIZE = (MAX_DEPTH * STACK_SIZE_CASTRAY + STACK_SIZE_BVH);
 
 #if PRINT_LOG
 #define CUDA_LOG(...) {printf(__VA_ARGS__);}

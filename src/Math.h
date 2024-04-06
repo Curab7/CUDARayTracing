@@ -18,16 +18,21 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define CLAMP(x, minVal, maxVal) (MAX(MIN(x, maxVal), minVal))
 
+class Vector2;
+class Vector3;
+CUDA_CALLABLE Vector3 operator*(const float scalar, const Vector3& vec);
+CUDA_CALLABLE Vector3 operator-(const float& scalar, const Vector3& vec);
+
 __device__ float randomFloat(int seed=0)
 {
-	//static bool init = false;
-	//static curandState_t state;
-	//if (!init)
-	//{
-	//	curand_init(seed, 0, 0, &state);
-	//	init = true;
-	//}
-	//return curand_uniform(&state);
+	static bool init = false;
+	static curandState_t state;
+	if (!init)
+	{
+		curand_init(seed, 0, 0, &state);
+		init = true;
+	}
+	return curand_uniform(&state);
 }
 
 class Vector3
@@ -43,12 +48,18 @@ public:
 	};
 
 	CUDA_CALLABLE Vector3() : x(0), y(0), z(0) {}
+	CUDA_CALLABLE Vector3(float num) : x(num), y(num), z(num) {}
 	CUDA_CALLABLE Vector3(float x, float y, float z) : x(x), y(y), z(z) {}
 	CUDA_CALLABLE Vector3(const Vector3 &other) : x(other.x), y(other.y), z(other.z) {}
 	CUDA_CALLABLE Vector3(const Vector3 &&other) : x(other.x), y(other.y), z(other.z) {}
 	CUDA_CALLABLE Vector3(const float *pool, int index)
 		: x(index < 0 ? 0 : pool[index * 3 + 0]), y(index < 0 ? 0 : pool[index * 3 + 1]), z(index < 0 ? 0 : pool[index * 3 + 2]) {}
 	CUDA_CALLABLE ~Vector3() {}
+
+	CUDA_CALLABLE static Vector3 fromSpherical(float theta, float phi, float r = 1.0f)
+	{
+		return Vector3(r * cos(phi) * sin(theta), r * sin(phi) * sin(theta), r * cos(theta));
+	}
 
 	CUDA_CALLABLE Vector3 operator=(const Vector3 &other)
 	{
@@ -115,6 +126,11 @@ public:
 		y *= scalar;
 		z *= scalar;
 		return *this;
+	}
+
+	CUDA_CALLABLE Vector3 operator/(const Vector3 &other) const
+	{
+		return Vector3(x / other.x, y / other.y, z / other.z);
 	}
 
 	CUDA_CALLABLE Vector3 operator/(float scalar) const
@@ -190,11 +206,31 @@ public:
 	{
 		return Vector3(CLAMP(x, minVal, maxVal), CLAMP(y, minVal, maxVal), CLAMP(z, minVal, maxVal));
 	}
+
+	// wi and ZDir are in same plane
+	CUDA_CALLABLE Vector3 toWorld(const Vector3& ZDir, const Vector3& wi) const
+	{
+		Vector3 vecZ = ZDir;
+		Vector3 vecY = -wi.cross(vecZ).normalized();
+		Vector3 vecX = vecY.cross(vecZ).normalized();
+		return x * vecX + y * vecY + z * vecZ;
+	}
+
+	// remember to normalize N
+	CUDA_CALLABLE Vector3 reflect(const Vector3& N) const
+	{
+		return 2.0f * N.dot(*this) * N  - *this;
+	}
 };
 
-CUDA_CALLABLE Vector3 operator*(float scalar, const Vector3 &vec)
+CUDA_CALLABLE Vector3 operator*(const float scalar, const Vector3 &vec)
 {
 	return Vector3(vec.x * scalar, vec.y * scalar, vec.z * scalar);
+}
+
+CUDA_CALLABLE Vector3 operator-(const float &scalar, const Vector3 &vec)
+{
+	return Vector3(scalar - vec.x, scalar - vec.y, scalar - vec.z);
 }
 
 class Vector2

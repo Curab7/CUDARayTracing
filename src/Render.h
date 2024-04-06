@@ -96,7 +96,7 @@ Render::Render(Scene* scene, Camera* camera, int SPP, int maxDepth, float Russia
     this->width = (int)camera->width;
     this->height = (int)camera->height;
     this->sqrtSPP = (int)sqrt(SPP);
-    this->scene->maxDepth = maxDepth;
+    this->scene->maxDepth = std::min(maxDepth, MAX_DEPTH);
     this->scene->RussianRoulette = RussianRoulette;
 
     CUDA_MALLOC(frameBuffer, width * height * sizeof(Vector3), Vector3);

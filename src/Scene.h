@@ -19,7 +19,7 @@ public:
 
 
     int maxDepth{ 4 };
-    float RussianRoulette { 0.8 };
+    float RussianRoulette { 0.8f };
     Vector3 background{ 0.1f, 0.1f, 0.1f };
 
     Scene() {}
@@ -35,8 +35,10 @@ public:
     // 'state' is useless if not use CUDA
     CUDA_DEVICE float getRandomFloat(CURAND_STATE_T_PTR state) const;
     CUDA_DEVICE Vector3 castRay(const Ray& ray, int depth, CURAND_STATE_T_PTR state) const;
-    CUDA_DEVICE void sampleMirror(const Intersection& isec, const Vector3& wi, Vector3& wo, float& invPdf, CURAND_STATE_T_PTR state) const;
-    CUDA_DEVICE void sampleUniform(const Intersection& isec, const Vector3& wi, Vector3& wo, float& invPdf, CURAND_STATE_T_PTR state) const;
+    CUDA_DEVICE void sampleMirror(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
+    CUDA_DEVICE void sampleUniform(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
+    CUDA_DEVICE void sampleCos(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
+    CUDA_DEVICE void sampleBRDF(const Intersection& isec, const Vector3& wi, Vector3& brdf, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
 };
 
 Scene::~Scene() {
@@ -101,6 +103,11 @@ CUDA_DEVICE Vector3 Scene::castRay(const Ray& ray, int depth, CURAND_STATE_T_PTR
     if (depth > maxDepth)
         return result;
 
+    if (depth > 1 && getRandomFloat(state) > RussianRoulette)
+    {
+        return result;
+    }
+
     Intersection isec;
 
     if (!intersect(ray, isec))
@@ -110,31 +117,49 @@ CUDA_DEVICE Vector3 Scene::castRay(const Ray& ray, int depth, CURAND_STATE_T_PTR
 
     CUDA_LOG("Dealing with intersection at %f %f %f\n", isec.point.x, isec.point.y, isec.point.z);
 
-    SolidObject* hitObject = isec.object;
     Vector3 point = isec.point;
     Vector3 normal = isec.normal;
     Vector2 uv = isec.uv;
-    const Material* mtr = hitObject->material;
+    const Material* mtr = isec.object->material;
 
     if (mtr->isEmissive)
     {
         result += mtr->getEmission(uv);
     }
 
-    // return normal
-    result += normal * 0.5f + 0.5f;
-
     Vector3 wi = -ray.direction;
     Vector3 wo;
-    float invPdf;
-    sampleMirror(isec, wi, wo, invPdf, state);
+    float pdf;
+    Vector3 brdf;
 
-    Vector3 brdf = mtr->brdf(wi, wo, normal, uv);
+    //sampleCos(isec, wi, wo, pdf, state);
+    //brdf = mtr->brdf(wi, wo, normal, uv);
+
+    sampleBRDF(isec, wi, brdf, wo, pdf, state);
+
+    //return brdf;
+    //return wo * 0.5f + 0.5f;
+    //return (wi + wo).normalized() * 0.5f + 0.5f;
+
+    if (brdf.x == 0.0f && brdf.y == 0.0f && brdf.z == 0.0f)
+    {
+        return result;
+    }
+
     Vector3 radiance = castRay(Ray(point, wo), depth + 1, state);
-    //Vector3 radiance = Vector3(0.5f, 0.5f, 0.5f);
-    float cosTheta = wo.dot(normal);
 
-    result += brdf * radiance * cosTheta * invPdf;
+    //if (depth == 2)
+    //{
+    //    float theta = wo.dot(normal);
+    //    //printf("theta: %f\n", theta);
+    //    //Vector3 light = brdf * radiance * wo.dot(normal);
+    //    //printf("light: %f %f %f\n", light.x, light.y, light.z);
+    //    printf("brdf: %f %f %f, radiance: %f %f %f, theta: %f\n", brdf.x, brdf.y, brdf.z, radiance.x, radiance.y, radiance.z, theta);
+    //}
+
+    result += brdf * radiance * wo.dot(normal) / pdf / RussianRoulette;
+
+    //printf("result: %f %f %f\n", result.x, result.y, result.z);
 
     return result;
 }
@@ -153,23 +178,30 @@ CUDA_DEVICE float Scene::getRandomFloat(CURAND_STATE_T_PTR state) const
 }
 #endif
 
-CUDA_DEVICE void Scene::sampleMirror(const Intersection& isec, const Vector3& wi, Vector3& wo, float& invPdf, CURAND_STATE_T_PTR state) const
+CUDA_DEVICE void Scene::sampleMirror(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const
 {
-    Vector3 vecZ = isec.normal;
-    Vector3 vecY = -wi.cross(vecZ).normalized();
-    Vector3 vecX = vecY.cross(vecZ).normalized();
-    wo = -wi.dot(vecX) * vecX + wi.dot(vecZ) * vecZ;
-    invPdf = 1.0f;
+    wo = wi.reflect(isec.normal);
+    pdf = 1.0f;
 }
 
-CUDA_DEVICE void Scene::sampleUniform(const Intersection& isec, const Vector3& wi, Vector3& wo, float& invPdf, CURAND_STATE_T_PTR state) const
+CUDA_DEVICE void Scene::sampleUniform(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const
 {
-    Vector3 vecZ = isec.normal;
-    Vector3 vecY = -wi.cross(vecZ).normalized();
-    Vector3 vecX = vecY.cross(vecZ).normalized();
-    double phi = acosf(1 - getRandomFloat(state));
-    double theta = 2 * PI * getRandomFloat(state);
-    Vector3 localOut = Vector3(sinf(phi) * cosf(theta), sinf(phi) * sinf(theta), cosf(phi));
-    wo = localOut.x * vecX + localOut.y * vecY + localOut.z * vecZ;
-    invPdf = 2 * PI;
+    double theta = acosf(1 - getRandomFloat(state));
+    double phi = 2 * PI * getRandomFloat(state);
+    wo = Vector3::fromSpherical(theta, phi).toWorld(isec.normal, wi);
+    pdf = 1.0f / (2 * PI);
+}
+
+CUDA_DEVICE void Scene::sampleCos(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const
+{
+    double theta = acosf(sqrtf(1 - getRandomFloat(state)));
+    double phi = 2 * PI * getRandomFloat(state);
+    wo = Vector3::fromSpherical(theta, phi).toWorld(isec.normal, wi);
+    pdf = cosf(theta) / PI;
+}
+
+CUDA_DEVICE void Scene::sampleBRDF(const Intersection& isec, const Vector3& wi, Vector3& brdf, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const
+{
+    const Material* mtr = isec.object->material;
+    mtr->sampleBRDF(wi, isec.normal, isec.uv, brdf, wo, pdf, state);
 }

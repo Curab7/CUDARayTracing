@@ -3,6 +3,11 @@
 
 int main(int argc, char* argv[])
 {
+    size_t stackSize;
+    CUDA_CHECK(cudaDeviceSetLimit(cudaLimitStackSize, STACK_SIZE));
+    cudaDeviceGetLimit(&stackSize, cudaLimitStackSize);
+    printf("Stack size: %zu\n", stackSize);
+
     //std::string name = "cornell-box";
     std::string name = "veach-mis";
     //std::string name = "stairscase";
@@ -13,7 +18,7 @@ int main(int argc, char* argv[])
     Scene* scene = loader.getScene();
     Camera* camera = loader.getCamera();
 
-    Render render(scene, camera, 1, 10);
+    Render render(scene, camera, 64, 2);
     render.render();
 
     render.saveImage("../output/" + name + ".png");

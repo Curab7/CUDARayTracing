@@ -15,7 +15,7 @@ public:
     CUDA_CALLABLE ~Ray() {}
 
     CUDA_CALLABLE Ray(const Vector3& origin, const Vector3& direction, float tMin = 0.0f, float tMax = INF)
-        : origin(origin + 0.00001f * direction), direction(direction), tMin(tMin), tMax(tMax)
+        : origin(origin + 0.001f * direction), direction(direction), tMin(tMin), tMax(tMax)
     {
         for(int i = 0; i < 3; i++)
         {
