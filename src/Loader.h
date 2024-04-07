@@ -24,7 +24,7 @@ public:
 	std::vector<float*> allNormals;
 	std::vector<float*> allUvs;
 	std::vector<Mesh*> allMeshes;
-	std::map<std::string, std::map<std::string, Material*>> allMaterials; // path -> name -> material
+	std::map<std::string, std::map<std::string, MaterialBase*>> allMaterials; // path -> name -> material
 	std::map<std::string, Texture*> allTextures;
 
 	Scene* scene;
@@ -57,7 +57,7 @@ public:
 private:
 	Mesh* loadOBJ(const std::string& filename);
 	bool loadXML(const std::string& filename, Camera** camera, std::map<std::string, Vector3>* lightRadiance);
-	std::map<std::string, Material*>* loadMTL(const std::string& filename);
+	std::map<std::string, MaterialBase*>* loadMTL(const std::string& filename);
 	Texture* loadTexture(const std::string& filename);
 };
 
@@ -76,8 +76,7 @@ bool Loader::loadCoursePack(const std::string& caseName)
 		auto& sceneMaterials = allMaterials[caseName + ".mtl"];
 		for (auto light : lightRadiance)
 		{
-			sceneMaterials[light.first]->Ke = light.second;
-			sceneMaterials[light.first]->isEmissive = true;
+			sceneMaterials[light.first]->emission = light.second;
 		}
 	}
 	return success && scene!=nullptr && camera!=nullptr;
@@ -97,7 +96,7 @@ Mesh* Loader::loadOBJ(const std::string& filename)
 	std::vector<Vector3> vertices;
 	std::vector<Vector3> normals;
 	std::vector<Vector2> uvs;
-	std::map<std::string, Material*>* matlib{nullptr};
+	std::map<std::string, MaterialBase*>* matlib{nullptr};
 
 	std::vector<int> idxVertices, idxNormals, idxUvs;
 	std::vector<std::string> nameMaterials;
@@ -217,7 +216,7 @@ Mesh* Loader::loadOBJ(const std::string& filename)
 		int idxUV2 = idxUvs[i + 1] >= 0 ? idxUvs[i + 1] : -1;
 		int idxUV3 = idxUvs[i + 2] >= 0 ? idxUvs[i + 2] : -1;
 
-		Material* material = nullptr;
+		MaterialBase* material = nullptr;
 		std::string materialName = nameMaterials[i / 3];
 		if (matlib != nullptr && !materialName.empty())
 		{
@@ -241,7 +240,7 @@ Mesh* Loader::loadOBJ(const std::string& filename)
 	return mesh;
 }
 
-std::map<std::string, Material*>* Loader::loadMTL(const std::string& filename)
+std::map<std::string, MaterialBase*>* Loader::loadMTL(const std::string& filename)
 {
 	if (allMaterials.find(filename) != allMaterials.end())
 		return &allMaterials[filename];
@@ -253,11 +252,11 @@ std::map<std::string, Material*>* Loader::loadMTL(const std::string& filename)
 		return nullptr;
 	}
 
-	allMaterials[filename] = std::map<std::string, Material*>();
-	std::map<std::string, Material*>& materials = allMaterials[filename];
+	allMaterials[filename] = std::map<std::string, MaterialBase*>();
+	std::map<std::string, MaterialBase*>& materials = allMaterials[filename];
 
 	std::string line;
-	Material* material{nullptr};
+	MaterialBlinnPhong* material{nullptr};
 
 	while (std::getline(file, line))
 	{
@@ -272,7 +271,7 @@ std::map<std::string, Material*>* Loader::loadMTL(const std::string& filename)
 		{
 			std::string name;
 			ss >> name;
-			material = new Material();
+			material = new MaterialBlinnPhong();
 			materials[name] = material;
 		}
 		else if (type == "Ns")

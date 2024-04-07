@@ -17,10 +17,10 @@ public:
 
     static Texture* createFrom(const std::string& filename);
 
-    CUDA_CALLABLE Vector3 getColor(float u, float v) const
+    CUDA_CALLABLE Vector3 getColor(const Vector2& uv) const
     {
-        float x = u * width;
-        float y = v * height;
+        float x = uv.x * width;
+        float y = uv.y * height;
         int x1 = CLAMP((int)std::floorf(x), 0, width - 1);
         int x2 = CLAMP((int)std::ceilf(x), 0, width - 1);
         int y1 = CLAMP((int)std::floorf(y), 0, height - 1);

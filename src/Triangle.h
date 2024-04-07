@@ -15,7 +15,7 @@ public:
 
     Triangle(float* verticesPool, int idxV0, int idxV1, int idxV2,
              float* normalPool, int idxN0, int idxN1, int idxN2,
-             float* uvPool, int idxUV0, int idxUV1, int idxUV2, const Material* material=nullptr)
+             float* uvPool, int idxUV0, int idxUV1, int idxUV2, const MaterialBase* material=nullptr)
         : SolidObject(ObjectType::Triangle),
           verticesPool(verticesPool), normalPool(normalPool), uvPool(uvPool),
           idxV0(idxV0), idxV1(idxV1), idxV2(idxV2),

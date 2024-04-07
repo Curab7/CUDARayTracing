@@ -20,7 +20,7 @@ public:
 
     int maxDepth{ 4 };
     float RussianRoulette { 0.8f };
-    Vector3 background{ 0.1f, 0.1f, 0.1f };
+    Vector3 background{ 0.0f, 0.0f, 0.0f };
 
     Scene() {}
 
@@ -38,7 +38,7 @@ public:
     CUDA_DEVICE void sampleMirror(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
     CUDA_DEVICE void sampleUniform(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
     CUDA_DEVICE void sampleCos(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
-    CUDA_DEVICE void sampleBRDF(const Intersection& isec, const Vector3& wi, Vector3& brdf, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
+    CUDA_DEVICE void sampleBRDF(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const;
 };
 
 Scene::~Scene() {
@@ -120,12 +120,9 @@ CUDA_DEVICE Vector3 Scene::castRay(const Ray& ray, int depth, CURAND_STATE_T_PTR
     Vector3 point = isec.point;
     Vector3 normal = isec.normal;
     Vector2 uv = isec.uv;
-    const Material* mtr = isec.object->material;
+    const MaterialBase* mtr = isec.object->material;
 
-    if (mtr->isEmissive)
-    {
-        result += mtr->getEmission(uv);
-    }
+    result += mtr->emission;
 
     Vector3 wi = -ray.direction;
     Vector3 wo;
@@ -133,9 +130,8 @@ CUDA_DEVICE Vector3 Scene::castRay(const Ray& ray, int depth, CURAND_STATE_T_PTR
     Vector3 brdf;
 
     //sampleCos(isec, wi, wo, pdf, state);
-    //brdf = mtr->brdf(wi, wo, normal, uv);
-
-    sampleBRDF(isec, wi, brdf, wo, pdf, state);
+    sampleBRDF(isec, wi, wo, pdf, state);
+    brdf = mtr->brdf(wi, wo, normal, uv);
 
     //return brdf;
     //return wo * 0.5f + 0.5f;
@@ -200,8 +196,8 @@ CUDA_DEVICE void Scene::sampleCos(const Intersection& isec, const Vector3& wi, V
     pdf = cosf(theta) / PI;
 }
 
-CUDA_DEVICE void Scene::sampleBRDF(const Intersection& isec, const Vector3& wi, Vector3& brdf, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const
+CUDA_DEVICE void Scene::sampleBRDF(const Intersection& isec, const Vector3& wi, Vector3& wo, float& pdf, CURAND_STATE_T_PTR state) const
 {
-    const Material* mtr = isec.object->material;
-    mtr->sampleBRDF(wi, isec.normal, isec.uv, brdf, wo, pdf, state);
+    const MaterialBase* mtr = isec.object->material;
+    mtr->sampleBRDF(wi, isec.normal, isec.uv, wo, pdf, state);
 }

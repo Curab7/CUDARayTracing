@@ -23,18 +23,6 @@ class Vector3;
 CUDA_CALLABLE Vector3 operator*(const float scalar, const Vector3& vec);
 CUDA_CALLABLE Vector3 operator-(const float& scalar, const Vector3& vec);
 
-__device__ float randomFloat(int seed=0)
-{
-	static bool init = false;
-	static curandState_t state;
-	if (!init)
-	{
-		curand_init(seed, 0, 0, &state);
-		init = true;
-	}
-	return curand_uniform(&state);
-}
-
 class Vector3
 {
 public:

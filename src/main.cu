@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
     Scene* scene = loader.getScene();
     Camera* camera = loader.getCamera();
 
-    Render render(scene, camera, 64, 2);
+    Render render(scene, camera, 64, 6);
     render.render();
 
     render.saveImage("../output/" + name + ".png");

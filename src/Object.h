@@ -33,7 +33,7 @@ public:
 class SolidObject : public Object
 {
 public:
-    const Material* material{ nullptr };
+    const MaterialBase* material{ nullptr };
 
     SolidObject(ObjectType type = ObjectType::None) : Object(type) {}
     virtual ~SolidObject() {}
